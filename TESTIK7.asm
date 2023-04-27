@@ -17,8 +17,47 @@ last_code     DB  ?
 file_to_write DB 'C:\out.txt', 0
 
 ;============================================================================
-      
- print_hex proc near
+
+parse_int proc far
+	push ax
+	push bx
+	push cx
+	
+	xor cx, cx
+	xor bx, bx
+	xor ax, ax
+	mov Cl, CS:keys_pressed
+	mov AL, CS:keys_pressed
+	mov bl, keys_pressed
+	call print_reg_BX
+	push CX	
+
+	diving:
+		mov bl, 10
+		div bl
+		add ah, 30h
+		mov CS:keys_pressed, ah
+		mov dx, offset CS:keys_pressed
+		mov bx, handler
+		push ax
+		mov ah, 40h
+		mov CX, 1
+		int 21h
+		pop ax
+		mov ah, 0
+		cmp al, 0
+	ja diving
+	
+	pop CX
+	mov CS:keys_pressed, Cl
+	pop CX
+	pop BX
+	pop AX
+
+	ret
+parse_int endp      
+
+print_hex proc near
     and DL, 0Fh
     add DL, 30h
     cmp DL, 3Ah
@@ -117,9 +156,9 @@ print_count:
 
 ;---------------------------------------------------------------------------
 
-            ;push    BX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
-            ;push    CX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
-            ;push    DX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
+            push    BX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
+            push    CX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
+            push    DX	; a®aa ­?­?? ?a?®«i§a?¬ea a???aaa®? ? aa???
 		push DS
 		push CS
 			pop DS
@@ -130,13 +169,10 @@ print_count:
         int 21h 
 
 	clc
-        mov BX, AX 
         mov handler, AX  
         
-        mov CX, 1
-        mov DX, offset CS:keys_pressed
-        mov AH, 40h
-        int 21h 
+        call parse_int
+        
         jnc m1
         jmp write_error 
         
@@ -151,9 +187,9 @@ print_count:
 
 ;---------------------------------------------------------------------------
 		pop DS
-            ;pop     DX
-            ;pop     CX
-            ;pop     BX
+            pop     DX
+            pop     CX
+            pop     BX
 ;---------------------------------------------------------------------------
     cli
     mov     AL, 20h      ; ?®e«?¬
@@ -166,7 +202,7 @@ print_count:
     
 hotkey_start_count:	
 ;---------------------------------------------------------------------------
-        mov CS:keys_pressed, 30h
+        mov CS:keys_pressed, 0h
         mov CS:flag_counting, 1
 ;---------------------------------------------------------------------------
     cli
