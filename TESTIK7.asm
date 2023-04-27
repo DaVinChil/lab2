@@ -10,8 +10,8 @@ old_09h         DD  ?
 ;----------------------------------------------------------------------------
 
 flag          DB  0
-keys_pressed  DB  39h, 39h, 2 dup(0) 
-decyatkov     DB  1h
+keys_pressed  DB  30h, 3 dup(0), '$'
+decyatkov     DB  0h
 flag_counting DB  0
 handler       DW  ?
 last_code     DB  80h
@@ -40,6 +40,10 @@ incr_count macro
     ;push CX
     ;push SI
     ;push CS
+	
+	;mov ah, 09h
+	;mov dx, offset keys_pressed
+	;int 21h
 
     mov CL, decyatkov
     mov SI, offset keys_pressed 
@@ -136,6 +140,8 @@ hotkey_start_count:
     pop DS
     
     mov decyatkov, 0
+    mov SI, offset keys_pressed
+    mov [SI], 30h
     mov flag_counting, 1  
     pop DS 
 ;---------------------------------------------------------------------------
@@ -176,6 +182,7 @@ print_count:
         mov CL, decyatkov
 	inc CX
 	cmp CX, 2
+	inc CX
 	jne conti
 	print_mes 'AAAAAA'
 	conti:
