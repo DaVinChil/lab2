@@ -19,63 +19,55 @@ file_to_write DB 'C:\out.txt', 0
 
 ;============================================================================
 
-incr_count proc near
-    push AX
-    push BX
-    push DX
-    push CX
+incr_count macro
     
     mov SI, offset decyatkov
-    mov CX, [SI]  
+    mov CX, CS:SI  
     mov SI, offset keys_pressed   
     add SI, CX
     long_math:   
-        mov AX, [SI]
+        mov AX, CS:SI
         cmp AX, 0
         jne dont_set_zero
         mov SI, 30h
          
         dont_set_zero:  
-        mov AX, [SI]
+        mov AX, CS:SI
         cmp AX, 39h
         jne just_incr
-            mov [SI], 30h  
+            mov CS:SI, 30h  
             mov incr_flag, 1
-         cmp CX, 0 
-         jne nxx
+        cmp CX, 0 
+        jne nxx
             inc SI 
             inc CX
             inc decyatkov 
             push SI
             push CX
             mov SI, offset decyatkov
-            mov CX, [SI]
+            mov CX, CS:SI
             add SI, CX
-            mov [SI], 30h
+            mov CS:SI, 30h
             pop CX
             pop SI
-         jmp nxx
+        jmp nxx
            
-         just_incr:   
-         inc [SI]
+        just_incr:   
+        inc CS:SI
          
-         nxx:   
-         cmp incr_flag, 1
-         je cont_add 
-            mov CX, 0
-         cont_add: 
-         mov incr_flag, 0
-         dec SI
+        nxx:   
+        cmp incr_flag, 1
+        je cont_add 
+           mov CX, 0
+        cont_add: 
+        mov incr_flag, 0
+        dec SI
     loop long_math
-    
-    pop CX
-    pop DX
-    pop BX
-    pop AX
-    iret
-         
-    incr_flag db 0
-incr_count endp           
+
+    jmp dalee
+        incr_flag db 0
+    dalee:
+endm         
 
 print_mes macro message
 local msg, nxt
@@ -95,13 +87,17 @@ local msg, nxt
 endm
 
 new_09h proc far
-    
-    print_mes 'wrong'
     pushf
 	push    AX
+    print_mes 'wrg'
     in      AL,60h                  ; ?????? scan-code
     cmp     AL, CS:last_code
-    je      dont_count
+    jne      countt
+    pop     AX                      ; No. ??aaa?????? AX
+	popf
+    jmp     dword ptr CS:[old_09h]
+
+    countt:
     cmp     AL, 80h
     jnb     cont_obr
     mov     CS:last_code, AL
@@ -112,13 +108,15 @@ new_09h proc far
         cmp     CS:flag_counting, 1                        
         jne     dont_count
         cmp     AL,57h              ; <F11>
-        je      print_count
+        je      pred_print_count
             push DS
             push CS
             pop DS
-            call incr_count
+            incr_count
             pop DS
-
+            jmp dont_count
+    pred_print_count:
+        jmp print_count
     dont_count:
     pop     AX                      ; No. ??aaa?????? AX
 	popf
