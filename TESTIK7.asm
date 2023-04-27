@@ -10,64 +10,14 @@ old_09h         DD  ?
 ;----------------------------------------------------------------------------
 
 flag          DB  0
-keys_pressed  DB  4 dup(0) 
-decyatkov     DB  0
+keys_pressed  DB  39h, 39h, 2 dup(0) 
+decyatkov     DB  1h
 flag_counting DB  0
 handler       DW  ?
 last_code     DB  80h
 file_to_write DB 'C:\out.txt', 0
 
 ;============================================================================
-
-incr_count macro
-    
-    mov SI, offset decyatkov
-    mov CX, CS:SI  
-    mov SI, offset keys_pressed   
-    add SI, CX
-    long_math:   
-        mov AX, CS:SI
-        cmp AX, 0
-        jne dont_set_zero
-        mov SI, 30h
-         
-        dont_set_zero:  
-        mov AX, CS:SI
-        cmp AX, 39h
-        jne just_incr
-            mov CS:SI, 30h  
-            mov incr_flag, 1
-        cmp CX, 0 
-        jne nxx
-            inc SI 
-            inc CX
-            inc decyatkov 
-            push SI
-            push CX
-            mov SI, offset decyatkov
-            mov CX, CS:SI
-            add SI, CX
-            mov CS:SI, 30h
-            pop CX
-            pop SI
-        jmp nxx
-           
-        just_incr:   
-        inc CS:SI
-         
-        nxx:   
-        cmp incr_flag, 1
-        je cont_add 
-           mov CX, 0
-        cont_add: 
-        mov incr_flag, 0
-        dec SI
-    loop long_math
-
-    jmp dalee
-        incr_flag db 0
-    dalee:
-endm         
 
 print_mes macro message
 local msg, nxt
@@ -86,10 +36,62 @@ local msg, nxt
     nxt:
 endm
 
+incr_count macro
+    ;push CX
+    ;push SI
+    ;push CS
+
+    mov CL, decyatkov
+    mov SI, offset keys_pressed 
+    add SI, CX
+    inc CL
+    long_math:   
+        cmp [SI], 00h
+        jne dont_set_zero
+        mov SI, 30h
+         
+        dont_set_zero:  
+        cmp [SI], 39h
+        jne just_incr
+            mov CS:SI, 30h  
+            mov incr_flag, 1
+        cmp CX, 1 
+        jne nxx
+            inc decyatkov 
+            push SI
+            push CX
+            mov CL, decyatkov
+            add SI, CX
+            mov CS:SI, 30h
+            pop CX
+            pop SI  
+            inc SI
+            inc CX
+        jmp nxx
+           
+        just_incr:   
+        inc CS:SI
+         
+        nxx:   
+        cmp incr_flag, 1
+        je cont_add 
+           jmp dalee
+        cont_add: 
+        mov incr_flag, 0
+        dec SI
+    loop long_math
+
+    jmp dalee
+        incr_flag db 0
+    dalee:
+	;pop CS
+	;pop SI
+	;pop CX
+endm         
+
 new_09h proc far
     pushf
 	push    AX
-    print_mes 'wrg'
     in      AL,60h                  ; ?????? scan-code
     cmp     AL, CS:last_code
     jne      countt
@@ -104,9 +106,13 @@ new_09h proc far
     add     CS:last_code, 80h
 	cont_obr:
     cmp     AL,58h                  ; ?a? a???-??? <F12>
-    je      hotkey_start_count      ; Yes
+    jne      not_hotkey_start_count      ; Yes
+	jmp hotkey_start_count
+	not_hotkey_start_count:
         cmp     CS:flag_counting, 1                        
-        jne     dont_count
+        je     count_it_mb
+		jmp dont_count
+	count_it_mb:
         cmp     AL,57h              ; <F11>
         je      pred_print_count
             push DS
@@ -114,9 +120,9 @@ new_09h proc far
             pop DS
             incr_count
             pop DS
-            jmp dont_count
+	jmp dont_count
     pred_print_count:
-        jmp print_count
+	jmp print_count
     dont_count:
     pop     AX                      ; No. ??aaa?????? AX
 	popf
@@ -125,13 +131,13 @@ new_09h proc far
     
 hotkey_start_count:	
 ;--------------------------------------------------------------------------- 
-    ;push DS
-    ;push CS
-    ;pop DS
+    push DS
+    push CS
+    pop DS
     
-    mov CS:decyatkov, 0
-    mov CS:flag_counting, 1  
-    ;pop DS 
+    mov decyatkov, 0
+    mov flag_counting, 1  
+    pop DS 
 ;---------------------------------------------------------------------------
     cli
     mov     AL, 20h      
@@ -167,8 +173,12 @@ print_count:
         mov BX, AX 
         mov handler, AX  
         
-        mov SI, offset decyatkov
-        mov CX, [SI]
+        mov CL, decyatkov
+	inc CX
+	cmp CX, 2
+	jne conti
+	print_mes 'AAAAAA'
+	conti:
         mov DX, offset CS:keys_pressed
         mov AH, 40h
         int 21h 
