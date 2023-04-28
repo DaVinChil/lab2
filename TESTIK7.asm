@@ -10,16 +10,15 @@ old_09h         DD  ?
 ;----------------------------------------------------------------------------
 
 flag          DB  0
-keys_pressed  DB  30h, 3 dup(0), '$'
-decyatkov     DB  0h
-flag_counting DB  0
-handler       DW  ?
-last_code     DB  80h
-file_to_write DB 'C:\out.txt', 0
+keys_pressed  DB  30h, 3 dup(0), '$' ;Строка с числом нажатых клавиш
+decyatkov     DB  0h                 ;Кол-во разрядов в числе с 0
+flag_counting DB  0                  ;Флаг о начале подсчета
+handler       DW  ?                  ;Описатель файла для записи
+file_to_write DB 'C:\out.txt', 0     ;Файл для вывода кол-во нажатых клавиш
 
 ;============================================================================
 
-print_mes macro message
+print_mes macro message ;Макрос для вывода сообщения
 local msg, nxt
     push AX
     push DX
@@ -36,37 +35,25 @@ local msg, nxt
     nxt:
 endm
 
-incr_count macro
-    ;push CX
-    ;push SI
-    ;push CS
-	
-	;mov ah, 09h
-	;mov dx, offset keys_pressed
-	;int 21h
+incr_count macro                  ;Макрос прибавлящий к единицу к кол-во нажатых клавиш
 
-    mov CL, decyatkov
+    mov CL, decyatkov             
     mov SI, offset keys_pressed 
-    add SI, CX
-    inc CL
+    add SI, CX                    ;Ставим указатель на первый разряд в числе
+    inc CL                        ;Так как подсчет кол-во разрядов в числе начинается с 0 прибавляю единицу что бы цикл long_math сработал
     long_math:   
-        cmp [SI], 00h
-        jne dont_set_zero
-        mov SI, 30h
-         
-        dont_set_zero:  
-        cmp [SI], 39h
-        jne just_incr
+        cmp [SI], 39h             ;Если в разряде '9'(39h) то ставим '0' и инкрементируем следующий разряд
+        jne just_incr		  
             mov CS:SI, 30h  
             mov incr_flag, 1
-        cmp CX, 1 
+        cmp CX, 1                 ;Если CX=1 то мы сейчас на последнем разряде и нужно добавить новый разряд
         jne nxx
-            inc decyatkov 
+            inc decyatkov         
             push SI
             push CX
             mov CL, decyatkov
             add SI, CX
-            mov CS:SI, 30h
+            mov CS:SI, 30h        ;Зануляем новый разряд
             pop CX
             pop SI  
             inc SI
@@ -88,49 +75,41 @@ incr_count macro
     jmp dalee
         incr_flag db 0
     dalee:
-	;pop CS
-	;pop SI
-	;pop CX
 endm         
 
 new_09h proc far
     pushf
 	push    AX
-    in      AL,60h                  ; ?????? scan-code
-    cmp     AL, CS:last_code
-    jne      countt
-    pop     AX                      ; No. ??aaa?????? AX
+    in      AL,60h                  ; Считываем scan-code
+    cmp     AL, 80h		    ; Если код больше 80h то это код отпускашия клавишу и его не надо учитывать
+    jb      countt
+    pop     AX                      
 	popf
     jmp     dword ptr CS:[old_09h]
 
     countt:
-    cmp     AL, 80h
-    jnb     cont_obr
-    mov     CS:last_code, AL
-    add     CS:last_code, 80h
-	cont_obr:
-    cmp     AL,58h                  ; ?a? a???-??? <F12>
-    jne      not_hotkey_start_count      ; Yes
-	jmp hotkey_start_count
-	not_hotkey_start_count:
-        cmp     CS:flag_counting, 1                        
-        je     count_it_mb
-		jmp dont_count
-	count_it_mb:
-        cmp     AL,57h              ; <F11>
-        je      pred_print_count
+    cmp     AL,58h                  ; scan_code = <F12>
+    jne      not_hotkey_start_count      ; Если да то переходим на метку hotkey_start_count, если нет идем дальше
+	jmp hotkey_start_count		 ; Yes
+    not_hotkey_start_count:              ; No
+        cmp     CS:flag_counting, 1      ; Поставлен ли флаг подсчета?                  
+        je     count_it_mb               ; Yes, идем дальше 
+		jmp dont_count           ; No, возвращаем упраление стараму перыванию
+    count_it_mb:
+        cmp     AL,57h              ; <F11>?
+        je      pred_print_count 
             push DS
             push CS
             pop DS
-            incr_count
+        incr_count                  ; No, прибавляем к кол-во нажатых клавишь
             pop DS
 	jmp dont_count
-    pred_print_count:
+    pred_print_count:               ; Yes, Был нажат <F11> и записываем в файл out.txt кол-во нажатых клавиш
 	jmp print_count
     dont_count:
-    pop     AX                      ; No. ??aaa?????? AX
+    pop     AX                      
 	popf
-    jmp     dword ptr CS:[old_09h]  ; ? a?aa???e? ??a???ac?? ??? ????a?a?
+    jmp     dword ptr CS:[old_09h]  
 
     
 hotkey_start_count:	
@@ -139,10 +118,10 @@ hotkey_start_count:
     push CS
     pop DS
     
-    mov decyatkov, 0
-    mov SI, offset keys_pressed
-    mov [SI], 30h
-    mov flag_counting, 1  
+    mov decyatkov, 0             ; Зануляем кол-во разрядов в количестве нажатых клавишь
+    mov SI, offset keys_pressed  ;
+    mov [SI], 30h                ; Зануляем кол-во нажатых клавиш
+    mov flag_counting, 1         ; Ставим флаг подсчета нажатий
     pop DS 
 ;---------------------------------------------------------------------------
     cli
@@ -154,46 +133,42 @@ hotkey_start_count:
     iret
 
 print_count:
-    sti                 ; ?? ?a??? ??e?ai a????aa
-    in      AL,61h      ; ?????? a???a????? ??aa? B
-    or      AL,80h      ; ?aa?????? aa?ae?? ??a
-    out     61h,AL      ; ? ??a??? ? ??aa B.
+    sti              
+    in      AL,61h    
+    or      AL,80h     
+    out     61h,AL      
     and     AL, 7Fh
     out     61h, AL
 
 ;---------------------------------------------------------------------------
 
-        push    BX	; a?aa?????? ?a???i?a??ea a???aaa?? ? aa???
-        push    CX	; a?aa?????? ?a???i?a??ea a???aaa?? ? aa???
-        push    DX	; a?aa?????? ?a???i?a??ea a???aaa?? ? aa???
+        push    BX	
+        push    CX	
+        push    DX	
 		push DS
 		push CS
 			pop DS
 
 ;---------------------------------------------------------------------------
         mov DX, offset file_to_write
-        mov AX, 3D01h
+        mov AX, 3D01h                ; Открываем файл
         int 21h 
 
 	clc
         mov BX, AX 
-        mov handler, AX  
+        mov handler, AX              ; Сохраняем описатель
         
         mov CL, decyatkov
 	inc CX
-	cmp CX, 2
-	inc CX
-	jne conti
-	print_mes 'AAAAAA'
-	conti:
+	inc CX                         ; Записываем кол-во разрядов + 2 байтов что бы перезаписыть предыдущие записи
         mov DX, offset CS:keys_pressed
-        mov AH, 40h
-        int 21h 
-        jnc m1
+        mov AH, 40h                    ; Записываем в файл
+        int 21h                        
+        jnc m1                         ;Проверяем флаг
         jmp write_error 
         
         m1:
-		    mov ah, 3Eh
+		    mov ah, 3Eh          ;закрываем в файл
 		    mov BX, CS:handler
 		    int 21h
 		    jnc m2
